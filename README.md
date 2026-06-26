@@ -56,6 +56,10 @@ API Key: 继续使用 sub2api 的 API Key
 | `MAX_SSE_CONTENT_CHARS` | `1048576` | SSE 聚合后的内容最大字符数 |
 | `DEBUG_LOG_PROMPT` | `false` | 是否临时输出 Chat 请求的 prompt 调试预览 |
 | `DEBUG_LOG_PROMPT_MAX_CHARS` | `1000` | 每段 system/user prompt 预览最大字符数 |
+| `DEBUG_LOG_REQUEST_BODY` | `false` | 是否临时输出转发给上游的请求体预览 |
+| `DEBUG_LOG_REQUEST_BODY_MAX_CHARS` | `4000` | 上游请求体预览最大字符数 |
+| `DEBUG_LOG_RESPONSE_BODY` | `false` | 是否临时输出上游响应体和适配后响应体预览 |
+| `DEBUG_LOG_RESPONSE_BODY_MAX_CHARS` | `4000` | 响应体预览最大字符数 |
 
 ### 临时 Prompt 调试日志
 
@@ -68,7 +72,18 @@ DEBUG_LOG_PROMPT_MAX_CHARS: "1000"
 
 开启后，`/v1/chat/completions` 会额外输出一条 `prompt_debug=true` 日志，包含 `model`、`messages_count`、`system_prompt_count`、`user_prompt_count`、`system_prompt_preview`、`user_prompt_preview`、`temperature`、`max_tokens`、`stream` 和 `prompt_truncated`。
 
-安全注意事项：该日志可能包含标题、简介、标签、演员等业务内容，只建议临时开启；排查完成后请改回 `DEBUG_LOG_PROMPT: "false"` 或删除相关配置。日志不会输出完整请求体、完整响应体或完整 API Key。
+如需进一步确认实际转发给上游的请求体、上游原始响应体，以及 adapter 清洗后的响应体，可临时开启：
+
+```yaml
+DEBUG_LOG_REQUEST_BODY: "true"
+DEBUG_LOG_REQUEST_BODY_MAX_CHARS: "4000"
+DEBUG_LOG_RESPONSE_BODY: "true"
+DEBUG_LOG_RESPONSE_BODY_MAX_CHARS: "4000"
+```
+
+开启后会输出 `body_debug=true` 日志，包含 `body_stage=upstream_request`、`body_stage=upstream_response` 或 `body_stage=adapter_response`，并通过 `body_preview` 给出截断后的请求/响应体预览。
+
+安全注意事项：这些日志可能包含标题、简介、标签、演员、模型返回内容等业务数据，只建议临时开启；排查完成后请改回 `false` 或删除相关配置。日志不会输出完整 API Key。
 
 ## 本地开发
 

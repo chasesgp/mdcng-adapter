@@ -63,6 +63,10 @@ class Settings:
     max_sse_content_chars: int = 1_048_576
     debug_log_prompt: bool = False
     debug_log_prompt_max_chars: int = 1000
+    debug_log_request_body: bool = False
+    debug_log_request_body_max_chars: int = 4000
+    debug_log_response_body: bool = False
+    debug_log_response_body_max_chars: int = 4000
 
 
 def load_settings() -> Settings:
@@ -81,4 +85,8 @@ def load_settings() -> Settings:
         max_sse_content_chars=parse_int(os.getenv("MAX_SSE_CONTENT_CHARS"), 1_048_576, min_value=1),
         debug_log_prompt=parse_bool(os.getenv("DEBUG_LOG_PROMPT"), False),
         debug_log_prompt_max_chars=parse_int(os.getenv("DEBUG_LOG_PROMPT_MAX_CHARS"), 1000, min_value=1),
+        debug_log_request_body=parse_bool(os.getenv("DEBUG_LOG_REQUEST_BODY"), False),
+        debug_log_request_body_max_chars=parse_int(os.getenv("DEBUG_LOG_REQUEST_BODY_MAX_CHARS"), 4000, min_value=1),
+        debug_log_response_body=parse_bool(os.getenv("DEBUG_LOG_RESPONSE_BODY"), False),
+        debug_log_response_body_max_chars=parse_int(os.getenv("DEBUG_LOG_RESPONSE_BODY_MAX_CHARS"), 4000, min_value=1),
     )

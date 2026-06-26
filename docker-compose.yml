@@ -14,6 +14,10 @@ services:
       REQUEST_TIMEOUT: "120"
       DEBUG_LOG_PROMPT: "false"
       DEBUG_LOG_PROMPT_MAX_CHARS: "1000"
+      DEBUG_LOG_REQUEST_BODY: "false"
+      DEBUG_LOG_REQUEST_BODY_MAX_CHARS: "4000"
+      DEBUG_LOG_RESPONSE_BODY: "false"
+      DEBUG_LOG_RESPONSE_BODY_MAX_CHARS: "4000"
     ports:
       - "8080:8080"
     networks:

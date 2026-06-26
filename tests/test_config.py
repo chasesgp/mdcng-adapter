@@ -29,6 +29,8 @@ def test_load_settings_falls_back_for_invalid_numeric_environment(monkeypatch) -
     monkeypatch.setenv("MAX_SSE_EVENTS", "0")
     monkeypatch.setenv("MAX_SSE_CONTENT_CHARS", "0")
     monkeypatch.setenv("DEBUG_LOG_PROMPT_MAX_CHARS", "0")
+    monkeypatch.setenv("DEBUG_LOG_REQUEST_BODY_MAX_CHARS", "0")
+    monkeypatch.setenv("DEBUG_LOG_RESPONSE_BODY_MAX_CHARS", "0")
 
     settings = load_settings()
 
@@ -38,16 +40,26 @@ def test_load_settings_falls_back_for_invalid_numeric_environment(monkeypatch) -
     assert settings.max_sse_events == 4096
     assert settings.max_sse_content_chars == 1_048_576
     assert settings.debug_log_prompt_max_chars == 1000
+    assert settings.debug_log_request_body_max_chars == 4000
+    assert settings.debug_log_response_body_max_chars == 4000
 
 
 def test_load_settings_reads_prompt_debug_environment(monkeypatch) -> None:
     monkeypatch.setenv("DEBUG_LOG_PROMPT", "true")
     monkeypatch.setenv("DEBUG_LOG_PROMPT_MAX_CHARS", "256")
+    monkeypatch.setenv("DEBUG_LOG_REQUEST_BODY", "true")
+    monkeypatch.setenv("DEBUG_LOG_REQUEST_BODY_MAX_CHARS", "512")
+    monkeypatch.setenv("DEBUG_LOG_RESPONSE_BODY", "true")
+    monkeypatch.setenv("DEBUG_LOG_RESPONSE_BODY_MAX_CHARS", "1024")
 
     settings = load_settings()
 
     assert settings.debug_log_prompt is True
     assert settings.debug_log_prompt_max_chars == 256
+    assert settings.debug_log_request_body is True
+    assert settings.debug_log_request_body_max_chars == 512
+    assert settings.debug_log_response_body is True
+    assert settings.debug_log_response_body_max_chars == 1024
 
 
 def test_load_settings_defaults_prompt_debug_to_disabled(monkeypatch) -> None:
@@ -58,3 +70,7 @@ def test_load_settings_defaults_prompt_debug_to_disabled(monkeypatch) -> None:
 
     assert settings.debug_log_prompt is False
     assert settings.debug_log_prompt_max_chars == 1000
+    assert settings.debug_log_request_body is False
+    assert settings.debug_log_request_body_max_chars == 4000
+    assert settings.debug_log_response_body is False
+    assert settings.debug_log_response_body_max_chars == 4000

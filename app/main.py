@@ -83,6 +83,15 @@ async def chat_completions(request: Request) -> Response:
         if stream_modified
         else raw_body
     )
+    if settings.debug_log_request_body:
+        _log_body_preview(
+            body_debug_type="request",
+            body_stage="upstream_request",
+            body=upstream_body,
+            max_chars=settings.debug_log_request_body_max_chars,
+            model=model,
+            content_type="application/json",
+        )
 
     try:
         upstream_response = await _forward_request(
@@ -102,6 +111,16 @@ async def chat_completions(request: Request) -> Response:
 
     upstream_status = upstream_response.status_code
     upstream_content_type = upstream_response.headers.get("content-type", "")
+    if settings.debug_log_response_body:
+        _log_body_preview(
+            body_debug_type="response",
+            body_stage="upstream_response",
+            body=upstream_response.content,
+            max_chars=settings.debug_log_response_body_max_chars,
+            model=model,
+            status=upstream_status,
+            content_type=upstream_content_type,
+        )
 
     if not 200 <= upstream_response.status_code < 300:
         response = _passthrough_response(upstream_response)
@@ -127,6 +146,16 @@ async def chat_completions(request: Request) -> Response:
                 settings.max_error_preview_chars,
             )
         response_cleaned = True
+        if settings.debug_log_response_body:
+            _log_body_preview(
+                body_debug_type="response",
+                body_stage="adapter_response",
+                body=payload,
+                max_chars=settings.debug_log_response_body_max_chars,
+                model=model,
+                status=upstream_response.status_code,
+                content_type="application/json",
+            )
         _log_request(request, started, model, target_model, stream_modified, passthrough, upstream_status, upstream_content_type, response_cleaned, None)
         return JSONResponse(status_code=upstream_response.status_code, content=payload)
 
@@ -146,6 +175,16 @@ async def chat_completions(request: Request) -> Response:
             )
         response_cleaned = True
         payload = sanitize_chat_completion_response(upstream_json, request_model=model)
+        if settings.debug_log_response_body:
+            _log_body_preview(
+                body_debug_type="response",
+                body_stage="adapter_response",
+                body=payload,
+                max_chars=settings.debug_log_response_body_max_chars,
+                model=model,
+                status=upstream_response.status_code,
+                content_type="application/json",
+            )
         _log_request(request, started, model, target_model, stream_modified, passthrough, upstream_status, upstream_content_type, response_cleaned, None)
         return JSONResponse(status_code=upstream_response.status_code, content=payload)
 
@@ -235,6 +274,43 @@ def _passthrough_response(upstream_response: httpx.Response) -> Response:
         status_code=upstream_response.status_code,
         headers=filter_response_headers(upstream_response.headers),
     )
+
+
+def _log_body_preview(
+    *,
+    body_debug_type: str,
+    body_stage: str,
+    body: bytes | object,
+    max_chars: int,
+    model: str,
+    status: int | None = None,
+    content_type: str = "",
+) -> None:
+    preview, truncated, body_bytes = _body_preview(body, max_chars)
+    logger.info(
+        format_log_fields(
+            body_debug="true",
+            body_debug_type=body_debug_type,
+            body_stage=body_stage,
+            model=model or "-",
+            upstream_status=status,
+            content_type=content_type or "-",
+            body_bytes=body_bytes,
+            body_preview=preview,
+            body_truncated=str(truncated).lower(),
+        )
+    )
+
+
+def _body_preview(body: bytes | object, max_chars: int) -> tuple[str, bool, int]:
+    if isinstance(body, bytes):
+        text = body.decode("utf-8", errors="replace")
+        body_bytes = len(body)
+    else:
+        text = json.dumps(body, separators=(",", ":"), ensure_ascii=False)
+        body_bytes = len(text.encode("utf-8"))
+
+    return (*_truncate_prompt(_escape_prompt_preview(text), max_chars), body_bytes)
 
 
 def _log_prompt_preview(body: dict[str, object], max_chars: int) -> None:
