@@ -332,6 +332,7 @@ POST /v1/chat/completions
 | 变量 | 默认值 | 说明 |
 |---|---|---|
 | `SUB2API_BASE_URL` | `http://sub2api:8080` | 上游 sub2api 地址 |
+| `TZ` | `Asia/Singapore` | 容器时区，Docker Compose 默认设置 |
 | `GROK_MODEL_PREFIXES` | `grok` | 需要特殊处理的模型名前缀，多个前缀用逗号分隔 |
 | `FORCE_STREAM_FALSE` | `true` | 是否对目标模型自动补充 `stream:false` |
 | `CLEAN_GROK_RESPONSE` | `true` | 是否清洗目标模型响应 |

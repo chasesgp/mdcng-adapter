@@ -41,6 +41,7 @@ API Key: 继续使用 sub2api 的 API Key
 | 变量 | 默认值 | 说明 |
 |---|---|---|
 | `SUB2API_BASE_URL` | `http://sub2api:8080` | 上游 sub2api 基础地址 |
+| `TZ` | `Asia/Singapore` | 容器时区，Docker Compose 默认设置 |
 | `GROK_MODEL_PREFIXES` | `grok` | 需要适配的模型名前缀，多个前缀用逗号分隔 |
 | `FORCE_STREAM_FALSE` | `true` | 目标模型请求缺少 `stream` 字段时是否补充 `stream:false` |
 | `CLEAN_GROK_RESPONSE` | `true` | 是否清洗目标模型的 JSON/SSE 响应 |
@@ -97,7 +98,27 @@ uvicorn app.main:app --host 0.0.0.0 --port 8080
 docker compose up -d --build
 ```
 
-当前 `docker-compose.yml` 默认使用名为 `ai-net` 的外部 Docker 网络。请确保 MDCNG、mdcng-adapter 和 sub2api 在该网络中可以互相访问。
+当前 `docker-compose.yml` 默认使用镜像：
+
+```text
+ghcr.io/chasesgp/mdcng-adapter:latest
+```
+
+同时保留 `build: .`，方便本地构建时给镜像打同名标签。
+
+当前 `docker-compose.yml` 默认使用名为 `mdcng-network` 的外部 Docker 网络。请确保 MDCNG、mdcng-adapter 和 sub2api 在该网络中可以互相访问。
+
+日志使用 Docker 默认 `json-file` 驱动，并在 `docker-compose.yml` 中启用轮转：
+
+```yaml
+logging:
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "7"
+```
+
+该配置限制单个日志文件最大 10MB，最多保留 7 个日志文件。Docker Compose 原生不支持按天数精确保留日志；如需严格按天清理，需要使用宿主机 `logrotate` 或 Loki、Fluent Bit 等外部日志系统。
 
 ## GitHub Actions 多架构镜像
 

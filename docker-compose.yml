@@ -1,8 +1,10 @@
 services:
   mdcng-adapter:
+    image: ghcr.io/chasesgp/mdcng-adapter:latest
     build: .
     container_name: mdcng-adapter
     environment:
+      TZ: Asia/Singapore
       SUB2API_BASE_URL: http://sub2api:8080
       GROK_MODEL_PREFIXES: grok
       FORCE_STREAM_FALSE: "true"
@@ -13,14 +15,19 @@ services:
     ports:
       - "8080:8080"
     networks:
-      - ai-net
+      - mdcng-network
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=3).read()"]
       interval: 30s
       timeout: 5s
       retries: 3
       start_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "7"
 
 networks:
-  ai-net:
+  mdcng-network:
     external: true
