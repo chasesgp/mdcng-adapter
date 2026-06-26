@@ -1,0 +1,26 @@
+services:
+  mdcng-adapter:
+    build: .
+    container_name: mdcng-adapter
+    environment:
+      SUB2API_BASE_URL: http://sub2api:8080
+      GROK_MODEL_PREFIXES: grok
+      FORCE_STREAM_FALSE: "true"
+      CLEAN_GROK_RESPONSE: "true"
+      PASSTHROUGH_NON_GROK: "true"
+      LOG_LEVEL: info
+      REQUEST_TIMEOUT: "120"
+    ports:
+      - "8080:8080"
+    networks:
+      - ai-net
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=3).read()"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+networks:
+  ai-net:
+    external: true
