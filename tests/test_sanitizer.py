@@ -84,6 +84,8 @@ def test_builtin_prompt_trigger_replaces_system_prompt_and_optimizes_title_reque
     assert trigger not in system_prompt
     assert "当前字段：标题" in system_prompt
     assert "不超过30个汉字" in system_prompt
+    assert "「」【】《》" in system_prompt
+    assert "装饰性符号" in system_prompt
     assert "不要调用工具" in system_prompt
 
 
