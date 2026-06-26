@@ -4,20 +4,44 @@ services:
     build: .
     container_name: mdcng-adapter
     environment:
+      # 容器时区
       TZ: Asia/Singapore
+      # sub2api 服务地址，用于转发上游请求
       SUB2API_BASE_URL: http://sub2api:8080
+      # 需要按 Grok 逻辑处理的模型名前缀，多个前缀可按应用约定分隔
       GROK_MODEL_PREFIXES: grok
+      # 强制将 stream 参数改为 false，避免上游流式响应
       FORCE_STREAM_FALSE: "true"
+      # 启用 Grok 响应内容清洗
       CLEAN_GROK_RESPONSE: "true"
+      # 非 Grok 模型请求不清洗，直接透传
       PASSTHROUGH_NON_GROK: "true"
+      # 应用日志级别
       LOG_LEVEL: info
+      # 上游请求超时时间，单位为秒
       REQUEST_TIMEOUT: "120"
+      # 是否记录提示词调试日志
       DEBUG_LOG_PROMPT: "false"
+      # 提示词调试日志最大记录字符数
       DEBUG_LOG_PROMPT_MAX_CHARS: "1000"
+      # 是否记录请求体调试日志
       DEBUG_LOG_REQUEST_BODY: "false"
+      # 请求体调试日志最大记录字符数
       DEBUG_LOG_REQUEST_BODY_MAX_CHARS: "4000"
+      # 是否记录响应体调试日志
       DEBUG_LOG_RESPONSE_BODY: "false"
+      # 响应体调试日志最大记录字符数
       DEBUG_LOG_RESPONSE_BODY_MAX_CHARS: "4000"
+      # 触发内置提示词清洗逻辑的文本标记
+      BUILTIN_PROMPT_TRIGGER: "system prompt 以 mdcng-adapter清洗为准"
+      # 内置提示词中标题字段的最大 token 数
+      BUILTIN_PROMPT_TITLE_MAX_TOKENS: "128"
+      # 内置提示词中概览字段的最大 token 数
+      BUILTIN_PROMPT_OVERVIEW_MAX_TOKENS: "1024"
+      # 内置提示词生成时使用的温度参数
+      BUILTIN_PROMPT_TEMPERATURE: "0.2"
+      # 内置提示词生成时是否禁用搜索
+      BUILTIN_PROMPT_DISABLE_SEARCH: "true"
     ports:
       - "8080:8080"
     networks:

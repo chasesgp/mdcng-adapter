@@ -7,6 +7,63 @@ from typing import Any
 from .config import Settings
 
 
+BUILTIN_PROMPT_FIELD_TITLE = "标题"
+BUILTIN_PROMPT_FIELD_OVERVIEW = "简介"
+
+
+def infer_mdcng_field_type(content: str) -> str:
+    text = content.strip()
+    if not text:
+        return BUILTIN_PROMPT_FIELD_OVERVIEW
+
+    lowered = text.lower()
+    if any(marker in lowered for marker in ("<br", "<p", "</p", "<div", "</div", "<li", "</li")):
+        return BUILTIN_PROMPT_FIELD_OVERVIEW
+    if "\n" in text or "\r" in text:
+        return BUILTIN_PROMPT_FIELD_OVERVIEW
+
+    sentence_marks = sum(text.count(mark) for mark in ("。", "！", "？", "!", "?"))
+    if sentence_marks >= 2:
+        return BUILTIN_PROMPT_FIELD_OVERVIEW
+    if len(text) >= 140:
+        return BUILTIN_PROMPT_FIELD_OVERVIEW
+
+    return BUILTIN_PROMPT_FIELD_TITLE
+
+
+def build_builtin_system_prompt(field_type: str) -> str:
+    normalized_field_type = (
+        field_type
+        if field_type in {BUILTIN_PROMPT_FIELD_TITLE, BUILTIN_PROMPT_FIELD_OVERVIEW}
+        else BUILTIN_PROMPT_FIELD_OVERVIEW
+    )
+    field_rule = (
+        "当前字段是标题。最终结果必须是简体中文短标题，不超过30个汉字；只保留核心人物、关系、行为或卖点；"
+        "删除夸张修饰、宣传语、重复词和次要细节；禁止输出句号。"
+        if normalized_field_type == BUILTIN_PROMPT_FIELD_TITLE
+        else "当前字段是简介。最终结果必须是简体中文单段简介；保留核心剧情、人物关系、场景和主要行为；禁止换行、分段、标题和列表。"
+    )
+
+    return f"""
+你是 mdcng-adapter 内置的成人影片标题与简介翻译、清洗与本地化专员。
+
+字段判定已由 adapter 完成：当前字段：{normalized_field_type}。
+{field_rule}
+
+必须严格遵守：
+1. 只处理 user 消息中的原始文本，不要调用工具，不要使用网络搜索、web_search、外部资料、搜索来源或站点页面。
+2. 不要补全 user 消息中没有的信息，不要根据番号、演员或标题自行查询剧情。
+3. 输出必须统一为自然、准确、流畅、简洁的简体中文。
+4. 输入若是日语、英语、繁体中文或其他非简体中文，必须翻译为简体中文；若已经是简体中文，只做清洗、纠错和润色。
+5. 删除 HTML 标签、emoji、乱码、装饰符号、广告、促销、官网链接、下载提示、观看引导、站点残留和模板残留。
+6. 全角字符尽量转为半角字符；只保留必要的常用中文标点。
+7. 演员名有稳定通用中文译名时可使用中文译名，没有通用译名则保留原文，不得臆造。
+8. 成人内容按原意自然表达，不刻意回避敏感词，但要避免生硬直译和日式断句。
+9. 只输出最终结果，不输出原文、语言判断、字段判断、解释、备注、Markdown、引号、前缀或后缀。
+10. 最终输出必须是一行文本。
+""".strip()
+
+
 def is_target_model(model: object, prefixes: tuple[str, ...]) -> bool:
     if not isinstance(model, str):
         return False
@@ -24,7 +81,124 @@ def sanitize_chat_request(body: dict[str, Any], settings: Settings) -> tuple[dic
         body["stream"] = False
         stream_modified = True
 
+    if target_model:
+        body = _replace_builtin_prompt_if_triggered(body, settings)
+
     return body, stream_modified, target_model
+
+
+def _replace_builtin_prompt_if_triggered(body: dict[str, Any], settings: Settings) -> dict[str, Any]:
+    messages = body.get("messages")
+    trigger = settings.builtin_prompt_trigger.strip()
+    if not trigger or not isinstance(messages, list):
+        return body
+
+    if not _has_builtin_prompt_trigger(messages, trigger):
+        return body
+
+    field_type = infer_mdcng_field_type(_collect_user_content(messages))
+    builtin_prompt = build_builtin_system_prompt(field_type)
+    updated = dict(body)
+    updated["messages"] = _replace_system_messages(messages, builtin_prompt, trigger)
+    updated["temperature"] = settings.builtin_prompt_temperature
+    updated["max_tokens"] = (
+        settings.builtin_prompt_title_max_tokens
+        if field_type == BUILTIN_PROMPT_FIELD_TITLE
+        else settings.builtin_prompt_overview_max_tokens
+    )
+    if settings.builtin_prompt_disable_search:
+        _remove_search_options(updated)
+    return updated
+
+
+def _has_builtin_prompt_trigger(messages: list[object], trigger: str) -> bool:
+    return any(
+        isinstance(message, dict)
+        and message.get("role") == "system"
+        and isinstance(message.get("content"), str)
+        and message["content"].strip() == trigger
+        for message in messages
+    )
+
+
+def _collect_user_content(messages: list[object]) -> str:
+    parts: list[str] = []
+    for message in messages:
+        if not isinstance(message, dict) or message.get("role") != "user":
+            continue
+        content = message.get("content")
+        if isinstance(content, str):
+            parts.append(content)
+    return "\n".join(parts)
+
+
+def _replace_system_messages(messages: list[object], builtin_prompt: str, trigger: str) -> list[object]:
+    replaced_messages: list[object] = []
+    inserted = False
+
+    for message in messages:
+        if not isinstance(message, dict) or message.get("role") != "system":
+            replaced_messages.append(message)
+            continue
+
+        content = message.get("content")
+        if not inserted and isinstance(content, str) and content.strip() == trigger:
+            replacement = dict(message)
+            replacement["content"] = builtin_prompt
+            replaced_messages.append(replacement)
+            inserted = True
+
+    if not inserted:
+        return [{"role": "system", "content": builtin_prompt}, *replaced_messages]
+    return replaced_messages
+
+
+def _remove_search_options(body: dict[str, Any]) -> None:
+    tools = body.get("tools")
+    if isinstance(tools, list):
+        filtered_tools = [tool for tool in tools if not _is_search_tool(tool)]
+        if filtered_tools:
+            body["tools"] = filtered_tools
+        else:
+            body.pop("tools", None)
+
+    tool_choice = body.get("tool_choice")
+    if _is_search_tool_choice(tool_choice):
+        body["tool_choice"] = "none"
+
+    body.pop("search_parameters", None)
+    body.pop("web_search_options", None)
+
+
+def _is_search_tool(tool: object) -> bool:
+    if not isinstance(tool, dict):
+        return False
+
+    tool_type = tool.get("type")
+    if isinstance(tool_type, str) and tool_type.lower() in {"web_search", "x_search"}:
+        return True
+
+    function = tool.get("function")
+    if isinstance(function, dict):
+        function_name = function.get("name")
+        return isinstance(function_name, str) and function_name.lower() in {"web_search", "x_search"}
+
+    return False
+
+
+def _is_search_tool_choice(tool_choice: object) -> bool:
+    if isinstance(tool_choice, str):
+        return tool_choice.lower() in {"web_search", "x_search"}
+    if not isinstance(tool_choice, dict):
+        return False
+
+    function = tool_choice.get("function")
+    if isinstance(function, dict):
+        function_name = function.get("name")
+        return isinstance(function_name, str) and function_name.lower() in {"web_search", "x_search"}
+
+    tool_type = tool_choice.get("type")
+    return isinstance(tool_type, str) and tool_type.lower() in {"web_search", "x_search"}
 
 
 def standard_usage(usage: object | None = None) -> dict[str, int]:

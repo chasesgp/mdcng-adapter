@@ -67,6 +67,11 @@ class Settings:
     debug_log_request_body_max_chars: int = 4000
     debug_log_response_body: bool = False
     debug_log_response_body_max_chars: int = 4000
+    builtin_prompt_trigger: str = "system prompt 以 mdcng-adapter清洗为准"
+    builtin_prompt_title_max_tokens: int = 128
+    builtin_prompt_overview_max_tokens: int = 1024
+    builtin_prompt_temperature: float = 0.2
+    builtin_prompt_disable_search: bool = True
 
 
 def load_settings() -> Settings:
@@ -89,4 +94,9 @@ def load_settings() -> Settings:
         debug_log_request_body_max_chars=parse_int(os.getenv("DEBUG_LOG_REQUEST_BODY_MAX_CHARS"), 4000, min_value=1),
         debug_log_response_body=parse_bool(os.getenv("DEBUG_LOG_RESPONSE_BODY"), False),
         debug_log_response_body_max_chars=parse_int(os.getenv("DEBUG_LOG_RESPONSE_BODY_MAX_CHARS"), 4000, min_value=1),
+        builtin_prompt_trigger=os.getenv("BUILTIN_PROMPT_TRIGGER", "system prompt 以 mdcng-adapter清洗为准").strip(),
+        builtin_prompt_title_max_tokens=parse_int(os.getenv("BUILTIN_PROMPT_TITLE_MAX_TOKENS"), 128, min_value=1),
+        builtin_prompt_overview_max_tokens=parse_int(os.getenv("BUILTIN_PROMPT_OVERVIEW_MAX_TOKENS"), 1024, min_value=1),
+        builtin_prompt_temperature=parse_float(os.getenv("BUILTIN_PROMPT_TEMPERATURE"), 0.2, min_value=0),
+        builtin_prompt_disable_search=parse_bool(os.getenv("BUILTIN_PROMPT_DISABLE_SEARCH"), True),
     )

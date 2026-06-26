@@ -31,6 +31,9 @@ def test_load_settings_falls_back_for_invalid_numeric_environment(monkeypatch) -
     monkeypatch.setenv("DEBUG_LOG_PROMPT_MAX_CHARS", "0")
     monkeypatch.setenv("DEBUG_LOG_REQUEST_BODY_MAX_CHARS", "0")
     monkeypatch.setenv("DEBUG_LOG_RESPONSE_BODY_MAX_CHARS", "0")
+    monkeypatch.setenv("BUILTIN_PROMPT_TITLE_MAX_TOKENS", "0")
+    monkeypatch.setenv("BUILTIN_PROMPT_OVERVIEW_MAX_TOKENS", "0")
+    monkeypatch.setenv("BUILTIN_PROMPT_TEMPERATURE", "invalid")
 
     settings = load_settings()
 
@@ -42,6 +45,9 @@ def test_load_settings_falls_back_for_invalid_numeric_environment(monkeypatch) -
     assert settings.debug_log_prompt_max_chars == 1000
     assert settings.debug_log_request_body_max_chars == 4000
     assert settings.debug_log_response_body_max_chars == 4000
+    assert settings.builtin_prompt_title_max_tokens == 128
+    assert settings.builtin_prompt_overview_max_tokens == 1024
+    assert settings.builtin_prompt_temperature == 0.2
 
 
 def test_load_settings_reads_prompt_debug_environment(monkeypatch) -> None:
@@ -51,6 +57,11 @@ def test_load_settings_reads_prompt_debug_environment(monkeypatch) -> None:
     monkeypatch.setenv("DEBUG_LOG_REQUEST_BODY_MAX_CHARS", "512")
     monkeypatch.setenv("DEBUG_LOG_RESPONSE_BODY", "true")
     monkeypatch.setenv("DEBUG_LOG_RESPONSE_BODY_MAX_CHARS", "1024")
+    monkeypatch.setenv("BUILTIN_PROMPT_TRIGGER", "use builtin prompt")
+    monkeypatch.setenv("BUILTIN_PROMPT_TITLE_MAX_TOKENS", "64")
+    monkeypatch.setenv("BUILTIN_PROMPT_OVERVIEW_MAX_TOKENS", "768")
+    monkeypatch.setenv("BUILTIN_PROMPT_TEMPERATURE", "0.1")
+    monkeypatch.setenv("BUILTIN_PROMPT_DISABLE_SEARCH", "false")
 
     settings = load_settings()
 
@@ -60,6 +71,11 @@ def test_load_settings_reads_prompt_debug_environment(monkeypatch) -> None:
     assert settings.debug_log_request_body_max_chars == 512
     assert settings.debug_log_response_body is True
     assert settings.debug_log_response_body_max_chars == 1024
+    assert settings.builtin_prompt_trigger == "use builtin prompt"
+    assert settings.builtin_prompt_title_max_tokens == 64
+    assert settings.builtin_prompt_overview_max_tokens == 768
+    assert settings.builtin_prompt_temperature == 0.1
+    assert settings.builtin_prompt_disable_search is False
 
 
 def test_load_settings_defaults_prompt_debug_to_disabled(monkeypatch) -> None:
@@ -74,3 +90,8 @@ def test_load_settings_defaults_prompt_debug_to_disabled(monkeypatch) -> None:
     assert settings.debug_log_request_body_max_chars == 4000
     assert settings.debug_log_response_body is False
     assert settings.debug_log_response_body_max_chars == 4000
+    assert settings.builtin_prompt_trigger == "system prompt 以 mdcng-adapter清洗为准"
+    assert settings.builtin_prompt_title_max_tokens == 128
+    assert settings.builtin_prompt_overview_max_tokens == 1024
+    assert settings.builtin_prompt_temperature == 0.2
+    assert settings.builtin_prompt_disable_search is True

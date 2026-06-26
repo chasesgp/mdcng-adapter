@@ -75,12 +75,13 @@ async def chat_completions(request: Request) -> Response:
 
     model = body.get("model") if isinstance(body.get("model"), str) else ""
     sanitized_body, stream_modified, target_model = sanitize_chat_request(body, settings)
+    request_modified = stream_modified or sanitized_body is not body
     if settings.debug_log_prompt:
         _log_prompt_preview(sanitized_body, settings.debug_log_prompt_max_chars)
     passthrough = bool(not target_model and settings.passthrough_non_grok and not settings.clean_all_responses)
     upstream_body = (
         json.dumps(sanitized_body, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
-        if stream_modified
+        if request_modified
         else raw_body
     )
     if settings.debug_log_request_body:

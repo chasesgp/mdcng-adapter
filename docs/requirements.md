@@ -282,6 +282,28 @@ gpt-5.4-mini
 
 可通过配置项控制是否对所有模型做响应清洗，默认关闭。
 
+### 5.6 内置 Prompt 替换
+
+MDCNG 只能配置一条标题/简介共用的 system prompt，且请求体中不会显式标记当前字段是标题还是简介。为提升成人影片标题和简介翻译、清洗、本地化效果，适配器支持通过关键字触发内置 prompt。
+
+当目标模型请求中的 system prompt 与以下关键字完全匹配时（忽略首尾空白）：
+
+```text
+system prompt 以 mdcng-adapter清洗为准
+```
+
+适配器应在转发上游前执行以下处理：
+
+- 将该 system prompt 替换为 adapter 内置的成人影片标题/简介翻译、清洗、本地化 prompt。
+- 根据 user 内容启发式判断字段类型：包含 HTML 标签、换行、多句或较长文本时按简介处理，否则按标题处理。
+- 标题请求使用较小的 `max_tokens`，默认 `128`。
+- 简介请求使用较大的 `max_tokens`，默认 `1024`。
+- 将 `temperature` 调整为默认 `0.2`。
+- 默认移除请求中的显式搜索工具配置，例如 `web_search`、`x_search`、`search_parameters` 和 `web_search_options`。
+- 内置 prompt 必须要求模型只处理 user 消息中的原始文本，不调用工具，不使用网络搜索、外部资料、搜索来源或站点页面。
+
+未命中关键字时，适配器不得修改普通 system prompt。
+
 ## 6. 接口需求
 
 ### 6.1 健康检查接口
@@ -310,10 +332,11 @@ POST /v1/chat/completions
 2. 解析请求体 JSON。
 3. 判断模型是否命中目标前缀。
 4. 必要时补充 `stream:false`。
-5. 转发请求到 sub2api。
-6. 接收 sub2api 响应。
-7. 必要时清洗 JSON 响应或聚合 SSE 响应。
-8. 返回 MDCNG 可解析的响应。
+5. 命中内置 prompt 触发关键字时，替换 system prompt 并优化请求参数。
+6. 转发请求到 sub2api。
+7. 接收 sub2api 响应。
+8. 必要时清洗 JSON 响应或聚合 SSE 响应。
+9. 返回 MDCNG 可解析的响应。
 
 ### 6.3 其他接口透传
 
@@ -346,6 +369,15 @@ POST /v1/chat/completions
 | `MAX_SSE_CONTENT_CHARS` | `1048576` | SSE 聚合后的内容最大字符数 |
 | `DEBUG_LOG_PROMPT` | `false` | 是否临时输出 Chat 请求的 prompt 调试预览 |
 | `DEBUG_LOG_PROMPT_MAX_CHARS` | `1000` | 每段 system/user prompt 预览最大字符数 |
+| `DEBUG_LOG_REQUEST_BODY` | `false` | 是否临时输出转发给上游的请求体预览 |
+| `DEBUG_LOG_REQUEST_BODY_MAX_CHARS` | `4000` | 上游请求体预览最大字符数 |
+| `DEBUG_LOG_RESPONSE_BODY` | `false` | 是否临时输出上游响应体和适配后响应体预览 |
+| `DEBUG_LOG_RESPONSE_BODY_MAX_CHARS` | `4000` | 响应体预览最大字符数 |
+| `BUILTIN_PROMPT_TRIGGER` | `system prompt 以 mdcng-adapter清洗为准` | 命中该 system prompt 时替换为 adapter 内置清洗 prompt |
+| `BUILTIN_PROMPT_TITLE_MAX_TOKENS` | `128` | 内置 prompt 判定为标题时转发给上游的 `max_tokens` |
+| `BUILTIN_PROMPT_OVERVIEW_MAX_TOKENS` | `1024` | 内置 prompt 判定为简介时转发给上游的 `max_tokens` |
+| `BUILTIN_PROMPT_TEMPERATURE` | `0.2` | 内置 prompt 命中时转发给上游的 `temperature` |
+| `BUILTIN_PROMPT_DISABLE_SEARCH` | `true` | 内置 prompt 命中时移除请求中的搜索工具配置 |
 
 ## 8. Header 处理要求
 

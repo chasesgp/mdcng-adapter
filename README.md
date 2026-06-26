@@ -60,6 +60,29 @@ API Key: 继续使用 sub2api 的 API Key
 | `DEBUG_LOG_REQUEST_BODY_MAX_CHARS` | `4000` | 上游请求体预览最大字符数 |
 | `DEBUG_LOG_RESPONSE_BODY` | `false` | 是否临时输出上游响应体和适配后响应体预览 |
 | `DEBUG_LOG_RESPONSE_BODY_MAX_CHARS` | `4000` | 响应体预览最大字符数 |
+| `BUILTIN_PROMPT_TRIGGER` | `system prompt 以 mdcng-adapter清洗为准` | 命中该 system prompt 时替换为 adapter 内置清洗 prompt |
+| `BUILTIN_PROMPT_TITLE_MAX_TOKENS` | `128` | 内置 prompt 判定为标题时转发给上游的 `max_tokens` |
+| `BUILTIN_PROMPT_OVERVIEW_MAX_TOKENS` | `1024` | 内置 prompt 判定为简介时转发给上游的 `max_tokens` |
+| `BUILTIN_PROMPT_TEMPERATURE` | `0.2` | 内置 prompt 命中时转发给上游的 `temperature` |
+| `BUILTIN_PROMPT_DISABLE_SEARCH` | `true` | 内置 prompt 命中时移除请求中的搜索工具配置 |
+
+### MDCNG 内置 Prompt 替换
+
+MDCNG 只能配置一条标题/简介共用的 system prompt。为了避免模型自行猜测规则、保留 `{content}` 占位符或触发搜索，可以将 MDCNG 中的自定义 system prompt 设置为：
+
+```text
+system prompt 以 mdcng-adapter清洗为准
+```
+
+当目标模型请求中的 system prompt 与 `BUILTIN_PROMPT_TRIGGER` 完全匹配（忽略首尾空白）时，adapter 会在转发上游前执行以下处理：
+
+- 用 adapter 内置的成人影片标题/简介翻译、清洗、本地化 prompt 替换该 system prompt。
+- 根据 user 内容启发式判断字段类型：包含 HTML 标签、换行、多句或较长文本时按简介处理，否则按标题处理。
+- 标题请求使用 `BUILTIN_PROMPT_TITLE_MAX_TOKENS`，简介请求使用 `BUILTIN_PROMPT_OVERVIEW_MAX_TOKENS`。
+- 将 `temperature` 设置为 `BUILTIN_PROMPT_TEMPERATURE`。
+- 当 `BUILTIN_PROMPT_DISABLE_SEARCH=true` 时，移除请求中的 `web_search`、`x_search`、`search_parameters` 和 `web_search_options`，并在 prompt 中要求模型不要调用工具或使用外部资料。
+
+该功能只有命中触发词时才会接管 prompt；普通 system prompt 不会被修改。
 
 ### 临时 Prompt 调试日志
 

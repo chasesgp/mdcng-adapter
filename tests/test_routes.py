@@ -59,6 +59,45 @@ def test_chat_completions_adds_stream_false_and_cleans_json(monkeypatch) -> None
     assert response.json()["usage"] == {"prompt_tokens": 1, "completion_tokens": 2, "total_tokens": 3}
 
 
+def test_chat_completions_forwards_builtin_prompt_replacement_when_stream_exists(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    async def fake_forward_request(*, request, body, force_json, settings):
+        captured["body"] = json.loads(body)
+        captured["force_json"] = force_json
+        return httpx.Response(
+            200,
+            headers={"content-type": "application/json"},
+            json={"choices": [{"index": 0, "message": {"role": "assistant", "content": "Hi"}}]},
+        )
+
+    monkeypatch.setattr(main, "_forward_request", fake_forward_request)
+
+    with TestClient(main.app) as client:
+        response = client.post(
+            "/v1/chat/completions",
+            json={
+                "model": "grok-test",
+                "stream": False,
+                "messages": [
+                    {"role": "system", "content": "system prompt 以 mdcng-adapter清洗为准"},
+                    {"role": "user", "content": "最強顔面レベル楪カレンが見つめてくれる天国射精"},
+                ],
+                "temperature": 0.8,
+                "max_tokens": 2048,
+            },
+        )
+
+    assert response.status_code == 200
+    assert captured["force_json"] is True
+    forwarded_body = captured["body"]
+    assert forwarded_body["stream"] is False
+    assert forwarded_body["temperature"] == 0.2
+    assert forwarded_body["max_tokens"] == 128
+    assert "当前字段：标题" in forwarded_body["messages"][0]["content"]
+    assert forwarded_body["messages"][1]["content"] == "最強顔面レベル楪カレンが見つめてくれる天国射精"
+
+
 def test_chat_completions_aggregates_sse(monkeypatch) -> None:
     async def fake_forward_request(*, request, body, force_json, settings):
         return httpx.Response(
