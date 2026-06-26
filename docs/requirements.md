@@ -344,6 +344,8 @@ POST /v1/chat/completions
 | `MAX_UPSTREAM_RESPONSE_BYTES` | `33554432` | 上游响应最大字节数，超过后返回 502 |
 | `MAX_SSE_EVENTS` | `4096` | SSE 聚合最大事件数 |
 | `MAX_SSE_CONTENT_CHARS` | `1048576` | SSE 聚合后的内容最大字符数 |
+| `DEBUG_LOG_PROMPT` | `false` | 是否临时输出 Chat 请求的 prompt 调试预览 |
+| `DEBUG_LOG_PROMPT_MAX_CHARS` | `1000` | 每段 system/user prompt 预览最大字符数 |
 
 ## 8. Header 处理要求
 

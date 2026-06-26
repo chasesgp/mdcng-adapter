@@ -12,6 +12,8 @@ services:
       PASSTHROUGH_NON_GROK: "true"
       LOG_LEVEL: info
       REQUEST_TIMEOUT: "120"
+      DEBUG_LOG_PROMPT: "false"
+      DEBUG_LOG_PROMPT_MAX_CHARS: "1000"
     ports:
       - "8080:8080"
     networks:

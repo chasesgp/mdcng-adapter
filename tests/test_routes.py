@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 
 import httpx
 import pytest
@@ -162,3 +163,84 @@ def test_other_paths_are_passthrough(monkeypatch) -> None:
     assert response.status_code == 200
     assert response.json() == {"data": []}
     assert captured == {"path": "/v1/models", "body": b"", "force_json": False}
+
+
+def test_truncate_prompt_returns_preview_and_truncation_flag() -> None:
+    assert main._truncate_prompt("short", 10) == ("short", False)
+    assert main._truncate_prompt("abcdef", 3) == ("abc...", True)
+
+
+def test_prompt_debug_log_includes_previews_and_escapes_newlines(monkeypatch, caplog) -> None:
+    del monkeypatch
+    caplog.set_level(logging.INFO, logger="mdcng_adapter")
+
+    main._log_prompt_preview(
+        {
+            "model": "grok-test",
+            "temperature": 0.2,
+            "max_tokens": 2048,
+            "stream": False,
+            "messages": [
+                {"role": "system", "content": "第一行\n第二行"},
+                {"role": "user", "content": "Translate\tthis"},
+                {"role": "user", "content": [{"type": "text", "text": "hidden"}]},
+            ],
+        },
+        100,
+    )
+
+    log_text = "\n".join(caplog.messages)
+    assert "prompt_debug=true" in log_text
+    assert "model=grok-test" in log_text
+    assert "messages_count=3" in log_text
+    assert "system_prompt_count=1" in log_text
+    assert "user_prompt_count=2" in log_text
+    assert "system_prompt_preview=第一行\\n第二行" in log_text
+    assert "user_prompt_preview=Translate\\tthis\\n---\\n<non-string content: list>" in log_text
+    assert "temperature=0.2" in log_text
+    assert "max_tokens=2048" in log_text
+    assert "stream=false" in log_text
+    assert "prompt_truncated=false" in log_text
+    assert "authorization" not in log_text.lower()
+
+
+def test_prompt_debug_log_marks_missing_system_and_truncation(monkeypatch, caplog) -> None:
+    del monkeypatch
+    caplog.set_level(logging.INFO, logger="mdcng_adapter")
+
+    main._log_prompt_preview(
+        {"model": "grok-test", "messages": [{"role": "user", "content": "Translate this title"}]},
+        5,
+    )
+
+    log_text = "\n".join(caplog.messages)
+    assert "prompt_debug=true" in log_text
+    assert "system_prompt_count=0" in log_text
+    assert "system_prompt_preview=-" in log_text
+    assert "user_prompt_preview=Trans..." in log_text
+    assert "prompt_truncated=true" in log_text
+
+
+def test_prompt_debug_log_is_disabled_by_default(monkeypatch, caplog) -> None:
+    async def fake_forward_request(*, request, body, force_json, settings):
+        return httpx.Response(200, headers={"content-type": "application/json"}, json={"choices": []})
+
+    prompt_log_calls: list[tuple[dict[str, object], int]] = []
+
+    monkeypatch.delenv("DEBUG_LOG_PROMPT", raising=False)
+    monkeypatch.setattr(main, "_forward_request", fake_forward_request)
+    monkeypatch.setattr(main, "_log_prompt_preview", lambda body, max_chars: prompt_log_calls.append((body, max_chars)))
+    caplog.set_level(logging.INFO, logger="mdcng_adapter")
+
+    with TestClient(main.app) as client:
+        response = client.post(
+            "/v1/chat/completions",
+            json={"model": "grok-test", "messages": [{"role": "user", "content": "hidden prompt"}]},
+        )
+
+    assert response.status_code == 200
+    assert prompt_log_calls == []
+    log_text = "\n".join(caplog.messages)
+    assert "prompt_debug=true" not in log_text
+    assert "system_prompt_preview" not in log_text
+    assert "user_prompt_preview" not in log_text

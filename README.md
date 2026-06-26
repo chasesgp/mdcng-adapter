@@ -18,6 +18,7 @@ API Key: 继续使用 sub2api 的 API Key
 ## 项目文档
 
 - [需求规格说明书](docs/requirements.md)
+- [临时 Prompt 调试日志需求说明](docs/debug-prompt-logging.md)
 - [贡献与提交规范](CONTRIBUTING.md)
 
 ## 功能
@@ -53,6 +54,21 @@ API Key: 继续使用 sub2api 的 API Key
 | `MAX_UPSTREAM_RESPONSE_BYTES` | `33554432` | 上游响应最大字节数，超过后返回 502 |
 | `MAX_SSE_EVENTS` | `4096` | SSE 聚合最大事件数 |
 | `MAX_SSE_CONTENT_CHARS` | `1048576` | SSE 聚合后的内容最大字符数 |
+| `DEBUG_LOG_PROMPT` | `false` | 是否临时输出 Chat 请求的 prompt 调试预览 |
+| `DEBUG_LOG_PROMPT_MAX_CHARS` | `1000` | 每段 system/user prompt 预览最大字符数 |
+
+### 临时 Prompt 调试日志
+
+默认不会输出 `messages`、system prompt 或 user prompt。排查 MDCNG 实际传给模型的 prompt 时，可临时开启：
+
+```yaml
+DEBUG_LOG_PROMPT: "true"
+DEBUG_LOG_PROMPT_MAX_CHARS: "1000"
+```
+
+开启后，`/v1/chat/completions` 会额外输出一条 `prompt_debug=true` 日志，包含 `model`、`messages_count`、`system_prompt_count`、`user_prompt_count`、`system_prompt_preview`、`user_prompt_preview`、`temperature`、`max_tokens`、`stream` 和 `prompt_truncated`。
+
+安全注意事项：该日志可能包含标题、简介、标签、演员等业务内容，只建议临时开启；排查完成后请改回 `DEBUG_LOG_PROMPT: "false"` 或删除相关配置。日志不会输出完整请求体、完整响应体或完整 API Key。
 
 ## 本地开发
 

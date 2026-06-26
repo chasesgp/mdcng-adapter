@@ -75,6 +75,8 @@ async def chat_completions(request: Request) -> Response:
 
     model = body.get("model") if isinstance(body.get("model"), str) else ""
     sanitized_body, stream_modified, target_model = sanitize_chat_request(body, settings)
+    if settings.debug_log_prompt:
+        _log_prompt_preview(sanitized_body, settings.debug_log_prompt_max_chars)
     passthrough = bool(not target_model and settings.passthrough_non_grok and not settings.clean_all_responses)
     upstream_body = (
         json.dumps(sanitized_body, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
@@ -233,6 +235,75 @@ def _passthrough_response(upstream_response: httpx.Response) -> Response:
         status_code=upstream_response.status_code,
         headers=filter_response_headers(upstream_response.headers),
     )
+
+
+def _log_prompt_preview(body: dict[str, object], max_chars: int) -> None:
+    messages = body.get("messages")
+    message_items = messages if isinstance(messages, list) else []
+    system_prompts: list[str] = []
+    user_prompts: list[str] = []
+
+    for message in message_items:
+        if not isinstance(message, dict):
+            continue
+        role = message.get("role")
+        if role not in {"system", "user"}:
+            continue
+
+        content = message.get("content")
+        preview = content if isinstance(content, str) else f"<non-string content: {type(content).__name__}>"
+        if role == "system":
+            system_prompts.append(preview)
+        else:
+            user_prompts.append(preview)
+
+    system_preview, system_truncated = _prompt_preview(system_prompts, max_chars)
+    user_preview, user_truncated = _prompt_preview(user_prompts, max_chars)
+    model = body.get("model") if isinstance(body.get("model"), str) else "-"
+
+    logger.info(
+        format_log_fields(
+            prompt_debug="true",
+            model=model,
+            messages_count=len(message_items),
+            system_prompt_count=len(system_prompts),
+            user_prompt_count=len(user_prompts),
+            system_prompt_preview=system_preview,
+            user_prompt_preview=user_preview,
+            temperature=_format_prompt_log_value(body.get("temperature")),
+            max_tokens=_format_prompt_log_value(body.get("max_tokens")),
+            stream=_format_prompt_log_value(body.get("stream")),
+            prompt_truncated=str(system_truncated or user_truncated).lower(),
+        )
+    )
+
+
+def _prompt_preview(values: list[str], max_chars: int) -> tuple[str, bool]:
+    if not values:
+        return "-", False
+
+    return _truncate_prompt(_escape_prompt_preview("\n---\n".join(values)), max_chars)
+
+
+def _truncate_prompt(value: str, max_chars: int) -> tuple[str, bool]:
+    safe_max_chars = max(1, max_chars)
+    if len(value) <= safe_max_chars:
+        return value, False
+    return f"{value[:safe_max_chars]}...", True
+
+
+def _escape_prompt_preview(value: str) -> str:
+    return value.replace("\r", "\\r").replace("\n", "\\n").replace("\t", "\\t")
+
+
+def _format_prompt_log_value(value: object) -> object:
+    if value is None:
+        return "-"
+    if isinstance(value, bool):
+        return str(value).lower()
+    if isinstance(value, str | int | float):
+        return value
+    return f"<non-scalar value: {type(value).__name__}>"
 
 
 def _log_request(

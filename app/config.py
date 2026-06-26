@@ -61,6 +61,8 @@ class Settings:
     max_upstream_response_bytes: int = 33_554_432
     max_sse_events: int = 4096
     max_sse_content_chars: int = 1_048_576
+    debug_log_prompt: bool = False
+    debug_log_prompt_max_chars: int = 1000
 
 
 def load_settings() -> Settings:
@@ -77,4 +79,6 @@ def load_settings() -> Settings:
         max_upstream_response_bytes=parse_int(os.getenv("MAX_UPSTREAM_RESPONSE_BYTES"), 33_554_432, min_value=1024),
         max_sse_events=parse_int(os.getenv("MAX_SSE_EVENTS"), 4096, min_value=1),
         max_sse_content_chars=parse_int(os.getenv("MAX_SSE_CONTENT_CHARS"), 1_048_576, min_value=1),
+        debug_log_prompt=parse_bool(os.getenv("DEBUG_LOG_PROMPT"), False),
+        debug_log_prompt_max_chars=parse_int(os.getenv("DEBUG_LOG_PROMPT_MAX_CHARS"), 1000, min_value=1),
     )

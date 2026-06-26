@@ -1,6 +1,12 @@
 from __future__ import annotations
 
-from app.config import load_settings, parse_float, parse_int
+from app.config import load_settings, parse_bool, parse_float, parse_int
+
+
+def test_parse_bool_accepts_debug_prompt_values() -> None:
+    assert parse_bool("true", False) is True
+    assert parse_bool("false", True) is False
+    assert parse_bool("invalid", False) is False
 
 
 def test_parse_float_returns_default_for_invalid_or_out_of_range_values() -> None:
@@ -22,6 +28,7 @@ def test_load_settings_falls_back_for_invalid_numeric_environment(monkeypatch) -
     monkeypatch.setenv("MAX_UPSTREAM_RESPONSE_BYTES", "1")
     monkeypatch.setenv("MAX_SSE_EVENTS", "0")
     monkeypatch.setenv("MAX_SSE_CONTENT_CHARS", "0")
+    monkeypatch.setenv("DEBUG_LOG_PROMPT_MAX_CHARS", "0")
 
     settings = load_settings()
 
@@ -30,3 +37,24 @@ def test_load_settings_falls_back_for_invalid_numeric_environment(monkeypatch) -
     assert settings.max_upstream_response_bytes == 33_554_432
     assert settings.max_sse_events == 4096
     assert settings.max_sse_content_chars == 1_048_576
+    assert settings.debug_log_prompt_max_chars == 1000
+
+
+def test_load_settings_reads_prompt_debug_environment(monkeypatch) -> None:
+    monkeypatch.setenv("DEBUG_LOG_PROMPT", "true")
+    monkeypatch.setenv("DEBUG_LOG_PROMPT_MAX_CHARS", "256")
+
+    settings = load_settings()
+
+    assert settings.debug_log_prompt is True
+    assert settings.debug_log_prompt_max_chars == 256
+
+
+def test_load_settings_defaults_prompt_debug_to_disabled(monkeypatch) -> None:
+    monkeypatch.delenv("DEBUG_LOG_PROMPT", raising=False)
+    monkeypatch.delenv("DEBUG_LOG_PROMPT_MAX_CHARS", raising=False)
+
+    settings = load_settings()
+
+    assert settings.debug_log_prompt is False
+    assert settings.debug_log_prompt_max_chars == 1000
